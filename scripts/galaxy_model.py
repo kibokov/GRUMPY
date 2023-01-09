@@ -473,7 +473,7 @@ def integrate_model(tmdlmdlt=None, good_index=None, data=None, zspl=None,
 
         t0, m0, dlmdltspl, astart  = tmdlmdlt[i]
 
-        rpd = np.float(np.random.normal(0, scale=params.rpert_sig, size=1))   
+        rpd = np.random.normal(0., scale=params.rpert_sig, size=1)   
     
         temp_dict = {"i":i,"t0":t0, 'm0':m0,'astart':astart,'rpd':rpd,"tout":touti,"mstar_ini":params.mstar_ini,'zspl':zspl, 'dlmdltspl':dlmdltspl,'cosmo':cosmo._asdict(),'model_params':params._asdict() }
 
@@ -583,8 +583,8 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
 
         ##I need to confirm this is the right way to do this
 
-        rviri,rsi,mviri,upIDi,IDi = rvir[ind][1:],rs[ind][1:],mvir[ind][1:],upID[ind][1:],ID[ind][1:]
-        xci,yci,zci = xc[ind][1:],yc[ind][1:],zc[ind][1:]
+        rviri, rsi, mviri, upIDi, IDi = rvir[ind][1:], rs[ind][1:], mvir[ind][1:], upID[ind][1:], ID[ind][1:]
+        xci, yci, zci = xc[ind][1:], yc[ind][1:], zc[ind][1:]
 
         vxi, vyi, vzi = vxc[ind][1:], vyc[ind][1:], vzc[ind][1:] 
 
@@ -594,7 +594,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
 
 
 
-        t0,m0,dlmdltspl,astart = tmdlmdlt[i]
+        t0, m0, dlmdltspl, astart = tmdlmdlt[i]
         zstart = 1. / astart - 1.
         rpd = rperturb[i]
         zi = zspl(touti)
@@ -733,19 +733,23 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
             tau_50s.append(tau_50_i)
             tau_90s.append(tau_90_i)
 
-            halo_evol = {'t':touti, 'z_redshift': zi ,'Mvir': mviri, 'M200c':m200ci,'Mh':Mhi, 'Mg':Mgi, 'Ms':Msi, 'MZg':MZgi, 'MZs': MZsi, 'MH2':dummy1,'rsize':rshalf_evos, 'rvir':rviri,'rs':rsi, 'upID':upIDi, 'ID':IDi,'xpos':xci,'ypos':yci,'zpos':zci,'vx':vxi,'vy':vyi,'vz':vzi, "Mgin":Mgin_i,"Mgout":Mgout_i}
+            halo_evol = {'t': touti.tolist(), 'z_redshift': zi.tolist() ,'Mvir': mviri.tolist(),
+                         'M200c': m200ci.tolist(),'Mh': Mhi.tolist(), 'Mg': Mgi.tolist(), 'Ms': Msi.tolist(),
+                         'MZg': MZgi.tolist(), 'MZs': MZsi.tolist(), 'MH2': dummy1,
+                         'rsize': rshalf_evos.tolist(), 'rvir': rviri.tolist(), 'rs': rsi.tolist(),
+                         'upID': upIDi.tolist(), 'ID': IDi.tolist(),
+                         'xpos': xci.tolist(), 'ypos': yci.tolist(), 'zpos': zci.tolist(),
+                         'vx': vxi.tolist(),' vy': vyi.tolist(), 'vz': vzi.tolist(),
+                         'Mgin': Mgin_i.tolist(), 'Mgout': Mgout_i.tolist()}
+
 
             halo_evol_df = pd.DataFrame(halo_evol)
             #we will add the magnitudes to this evolution table after fsps is run
              
             track_name = track_dir + "/track_data/" + mhi_name + '_track.csv'
 
-            halo_evol_df.to_csv(track_name,index = False )
-
-        # else:
-            #this is the when the conditions of np.min(Mhi) > 0 and np.isnan(np.sum(Mhi)) == False is not satisfied.
-
-            #we want to to save these examples in a bad_stuff text file with Mout array and file name 
+            halo_evol_df.to_csv(track_name, index=False )
+ 
             
          
     #construct dictionary of the final statistics

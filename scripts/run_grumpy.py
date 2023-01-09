@@ -318,15 +318,16 @@ def add_mags(suite_names=None,iniconf=None):
     return 
 
 
-def save_code(code_save_dir,ini_file):
+def save_code(code_save_dir, code_dir, ini_file):
     '''
-    Function to clean the fsps input and output file directories. 
+    Function to save code and configuration file that was used to run current model
     '''
 
     scripts_c = code_save_dir+'/scripts'
     ini_c = code_save_dir+'/model.ini'
+     
 
-    os.system('cp -r scripts %s'%scripts_c)
+    os.system('cp -r '+ code_dir + '/scripts %s'%scripts_c)
     os.system('cp  %s  %s'%(ini_file,ini_c))
     
     return 
@@ -401,6 +402,7 @@ if __name__ == '__main__':
     #check if all the paths exist. If not, create them
     #this final_output_dir contains all the final csv files
     #the track data folder will have sub-folders corresponding to each suite. eg. caterpillar_1, caterpillar_2 etc.
+    code_dir = iniconf['main paths']['code_dir']    
     pickle_mah_dir = iniconf['output paths']['pickle_mah_dir']    
     pickle_disruption_dir = iniconf['output paths']['pickle_disruption_dir']
     base_output_dir = iniconf['main paths']['output_dir']
@@ -415,7 +417,7 @@ if __name__ == '__main__':
 
     #copy the .ini file and scripts into the code subdir. 
     #This is for keeping track of the code that was used to run that specific model.
-    save_code(code_save_dir,args.ini)
+    save_code(code_save_dir, code_dir, args.ini)
 
     run_fsps = iniconf['run params']['run_fsps']
 
@@ -465,10 +467,12 @@ if __name__ == '__main__':
 
     for si in all_suites:
         suite_name = si.replace(mah_data_dir+"/","").replace("/","")
-        all_suite_names.append(suite_name)
-        iter_i = {"suite_name":suite_name,"cosmo":cosmo._asdict(),"iniconf": iniconf}
+        # exclude temp directory reserved for auxiliary pickles
+        if suite_name != 'temp': 
+            all_suite_names.append(suite_name)
+            iter_i = {"suite_name": suite_name,"cosmo": cosmo._asdict(),"iniconf": iniconf}
 
-        all_suites_iter.append(iter_i)
+            all_suites_iter.append(iter_i)
 
     print_stage(all_suite_names)
      
