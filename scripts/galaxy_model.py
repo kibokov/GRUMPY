@@ -536,12 +536,13 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
         print( len(good_index),len(Mout),len(tmdlmdlt),len(mah_names),len(good_files) )
         raise ValueError("Post Process: Array length issue")
 
-    rvir,rs,mvir,upID,ID = data['rvir'],data['rs'],data['mvir'],data['upID'], data['ID']
-    xc,yc,zc = data['x'],data['y'],data['z']
-    vxc,vyc,vzc = data['vx'],data['vy'],data['vz']
+    rvir, rs, mvir, vmax = data['rvir'], data['rs'], data['mvir'], data['vmax']
+    upID, ID = data['upID'], data['ID']
+    xc, yc, zc = data['x'], data['y'], data['z']
+    vxc, vyc, vzc = data['vx'], data['vy'], data['vz']
 
 
-    Mhf, Msf, Mgf, MZsf, MZgf, MH2f,MHIf = [],[],[],[],[],[],[]
+    Mhf, Msf, Mgf, MZsf, MZgf, MH2f, MHIf = [],[],[],[],[],[],[]
     Mpeak_new, zpeak_new, rstar_ave = [],[], []
     sfrf = [] #this is the star formation rate at the final moment
 
@@ -551,6 +552,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
     rs_f = []
     mvir_f = []
     m200c_f = []
+    vmax_f = []
 
     xpos_f = []
     ypos_f = []
@@ -574,7 +576,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
     for i in tqdm(range(len(Mout)),disable=disable_tqdm):
         Mouti = Mout[i]
         ind = good_index[i]
-        touti,m200ci = times[ind][1:],m200c[ind][1:]
+        touti, m200ci = times[ind][1:], m200c[ind][1:]
         mhi_name = mah_names[ind]
         #the corresponding good_file name is. This list is also made from mah_names and should have the same content and a one to one matching
         good_file_name_i = good_files[i]
@@ -585,7 +587,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
 
         rviri, rsi, mviri, upIDi, IDi = rvir[ind][1:], rs[ind][1:], mvir[ind][1:], upID[ind][1:], ID[ind][1:]
         xci, yci, zci = xc[ind][1:], yc[ind][1:], zc[ind][1:]
-
+        vmaxi = vmax[ind][1:]
         vxi, vyi, vzi = vxc[ind][1:], vyc[ind][1:], vzc[ind][1:] 
 
         Mhi, Mgi, Msi, MZgi, MZsi = (Mouti[0,:], Mouti[1,:], Mouti[2,:], Mouti[3,:], Mouti[4,:])
@@ -605,17 +607,18 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
             sub_good_ind.append(ind) 
 
             #the virial variables at z = 0 time.
-            mvir_f.append( mviri[-1])
-            rvir_f.append( rviri[-1]) 
-            rs_f.append( rsi[-1])
-            m200c_f.append( m200ci[-1] )
+            mvir_f.append(mviri[-1])
+            rvir_f.append(rviri[-1]) 
+            rs_f.append(rsi[-1])
+            m200c_f.append(m200ci[-1])
+            vmax_f.append(vmaxi[-1])
             xpos_f.append(xci[-1])
             ypos_f.append(yci[-1])
             zpos_f.append(zci[-1])
 
-            vx_f.append( vxi[-1] )
-            vy_f.append( vyi[-1] )
-            vz_f.append( vzi[-1] )
+            vx_f.append(vxi[-1])
+            vy_f.append(vyi[-1])
+            vz_f.append(vzi[-1])
 
             rperturb_f.append(rpd)
 
@@ -754,9 +757,14 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
          
     #construct dictionary of the final statistics
     hdists = np.sqrt(np.array(xpos_f)**2 + np.array(ypos_f)**2 + np.array(zpos_f)**2)*1e3
-    summary_stats = {'file_name':all_final_names,'Mvir':mvir_f, 'M200c': m200c_f,'Mh': Mhf , 'Ms': Msf, "Mg" : Mgf, "MZs": MZsf , "MZg": MZgf, "MH2": MH2f,
-    "MHI": MHIf ,"Mpeak": Mpeak_new ,'zpeak': zpeak_new ,'rsize': rstar_ave,'rvir':rvir_f,'rs':rs_f,'sfrf':sfrf, 'zstart':all_zstarts, 'xpos': xpos_f ,'ypos': ypos_f ,
-    'zpos': zpos_f, "vx":vx_f,"vy":vy_f,"vz":vz_f ,'hdist':hdists, "tau_50":tau_50s,"tau_90s":tau_90s,"rperturb":rperturb_f,"upID":upID_f,"ID":ID_f}
+    summary_stats = {'file_name': all_final_names,' Mvir': mvir_f, 'M200c': m200c_f, 
+                     'Vmax': vmax_f, 'Mh': Mhf,  
+                     'Ms': Msf, 'Mg' : Mgf, 'MZs': MZsf , 'MZg': MZgf, 'MH2': MH2f,
+                     'MHI': MHIf ,'Mpeak': Mpeak_new ,'zpeak': zpeak_new ,
+                     'rsize': rstar_ave,'rvir': rvir_f, 'rs': rs_f,'sfrf': sfrf, 'zstart': all_zstarts,
+                     'xpos': xpos_f ,'ypos': ypos_f , 'zpos': zpos_f, 'vx': vx_f, 'vy': vy_f, 'vz': vz_f,
+                     'hdist': hdists, 'tau_50': tau_50s, 'tau_90': tau_90s,
+                     'rperturb': rperturb_f, 'upID': upID_f, 'ID': ID_f}
 
     if iniconf['run params']['run_fsps'] == "True": 
         #if fsps is yes, then save the sfh_names into a text file 
