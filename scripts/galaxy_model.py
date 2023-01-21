@@ -633,7 +633,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
 
             rshalf = 0.
             # estimate rhalf roughly
-            rh = rhalf(  Mpeak[i], zpeak[i],cosmo.h23i, cosmo.Om0, cosmo.OmL  ) * 10.**rperturb[i]
+            rh = float(rhalf(Mpeak[i], zpeak[i], cosmo.h23i, cosmo.Om0, cosmo.OmL) * 10.**rperturb[i])
 
             area2 = 2.*np.pi*(1e3*rh)**2
             Sigma0 = Mgi[-1] / area2
@@ -648,6 +648,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
             rh2g = np.linspace(np.log10(rdmin*rh),np.log10(3*rh), 100) 
 
             MH2g = np.zeros_like(rh2g)
+            #print(MH2g.shape, rh2g.shape, rh, rdmin, rh2g)
 
             Mhf.append(Mhi[-1]),Msf.append(Msi[-1]); MZsf.append(MZsi[-1])
             Mgf.append(Mgi[-1]); MZgf.append(MZgi[-1])
@@ -670,24 +671,26 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
                 dummy1.append(M_H2)
                 #dummy1 is the evolution of MH2 mass
 
+                # accumulate cumulative MH2 profile by adding current instantaneous MH2(<r) profile
                 for k, rh2d in enumerate(rh2g):
                     MH2g[k] += 2*np.pi*sgsp.integral(rdmin*rh, 10.**rh2d)
 
+                #print(MH2g.shape, MH2g)
                 #this is computing the evolution of rshalf
                 #MH2 is the cumulative distribution of 
                 MH2tot_tt = MH2g[-1]
                 if MH2tot_tt > 0:
                     MH2half_tt = 0.5*MH2tot_tt
-                    ihalf_tt = np.ravel(np.nonzero(MH2g < MH2half_tt))
+                    ihalf_tt = np.argwhere(MH2g < MH2half_tt).flatten()
                     rshalf_tt = 10.**rh2g[ihalf_tt[-1]]
+                    #print('ihtt:', ihalf_tt, MH2tot_tt) 
                 else:
                     rshalf_tt = 0
 
-                rshalf_evos.append(rshalf_tt)
+                rshalf_evos.append(float(rshalf_tt))
 
             rshalf_evos = np.array(rshalf_evos)
-
-            # MH2g *= 2.0*np.pi 
+            #print("rshalf_evos:", rshalf_evos)
 
             MH2f.append(dummy1[-1])
 
@@ -760,7 +763,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
     summary_stats = {'file_name': all_final_names,' Mvir': mvir_f, 'M200c': m200c_f, 
                      'Vmax': vmax_f, 'Mh': Mhf,  
                      'Ms': Msf, 'Mg' : Mgf, 'MZs': MZsf , 'MZg': MZgf, 'MH2': MH2f,
-                     'MHI': MHIf ,'Mpeak': Mpeak_new ,'zpeak': zpeak_new ,
+                     'MHI': MHIf, 'Mpeak': Mpeak_new ,'zpeak': zpeak_new ,
                      'rsize': rstar_ave,'rvir': rvir_f, 'rs': rs_f,'sfrf': sfrf, 'zstart': all_zstarts,
                      'xpos': xpos_f ,'ypos': ypos_f , 'zpos': zpos_f, 'vx': vx_f, 'vy': vy_f, 'vz': vz_f,
                      'hdist': hdists, 'tau_50': tau_50s, 'tau_90': tau_90s,
