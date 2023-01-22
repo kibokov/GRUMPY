@@ -620,7 +620,7 @@ def post_process(good_index=None,good_files=None,tmdlmdlt=None, data=None, param
             vy_f.append(vyi[-1])
             vz_f.append(vzi[-1])
 
-            rperturb_f.append(rpd)
+            rperturb_f.append(float(rpd))
 
             ID_f.append(IDi[-1])
             upID_f.append(upIDi[-1])

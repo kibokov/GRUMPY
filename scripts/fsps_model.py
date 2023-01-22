@@ -9,8 +9,10 @@ import logging
 from age_integrate import age
 from scipy.interpolate import UnivariateSpline
 from pathlib import Path
-try:import fsps 
-except: print("pyFSPS has not been installed yet.")
+try:
+    import fsps 
+except:
+    print("pyFSPS has not been installed yet.")
 
 all_bands = ['u','b','v','cousins_r','cousins_i', 'sdss_u','sdss_g','sdss_r','sdss_i','sdss_z']
 

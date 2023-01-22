@@ -283,16 +283,16 @@ def add_mags(suite_names=None,iniconf=None):
         mU,mB,mV,mR,mI,mu,mg,mr,mi,mz = [], [], [], [], [], [], [], [], [], []
         file_names = np.array(df["file_name"])
         #filter for file_names that contain the suite name
-        file_names_f =[]
+        #file_names_f =[]
         ##NEED TO FIX THIS WHEN I WILL BE RUNNING DIFFERENT SUITES AT THE SAME TIME 
-        for fi in file_names:
-            # if si+"_" in fi:
-            file_names_f.append(fi)
+        #for fi in file_names:
+        #    # if si+"_" in fi:
+        #    file_names_f.append(fi)
             
-        if len(file_names_f) != len(df["Mvir"]):
-            raise ValueError("The number of filtered fsps files found does not match the number of objects in the existing csv catalog.")
+        #if len(file_names_f) != len(df["Mvir"]):
+        #    raise ValueError("The number of filtered fsps files found does not match the number of objects in the existing csv catalog.")
 
-        for fi in file_names_f: 
+        for fi in file_names: 
             fsps_output_path = iniconf['output paths']['fsps_output_dir']
             fname = fsps_output_path + "/" + fi + "_output.txt" 
             mags = np.loadtxt(fname)
