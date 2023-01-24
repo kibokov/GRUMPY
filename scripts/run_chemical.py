@@ -1124,7 +1124,10 @@ if __name__ == '__main__':
     #to run this, I need to know the path where the GRUMPY outputs are stored
     ini_metal_rfrac,metals_to_track = compute_ini_metal_rfrac()
 
-    pickle_name = iniconf['chem model']['chem_grids_path'] + "/" + iniconf['chem model']['chem_grid_pickle']
+    chem_grid_path = iniconf['chem model']['chem_grids_path']
+    check_path_existence(all_paths=[chem_grid_path])
+
+    pickle_name = chem_grid_path + "/" + iniconf['chem model']['chem_grid_pickle']
     #generate or read the chemical grid
     if iniconf['chem model']['generate_chem_grids'] == "False":
         #read the grid file
@@ -1146,7 +1149,8 @@ if __name__ == '__main__':
     input_track_path = iniconf['chem setup']['input_track_path']
     final_store_path = iniconf['chem setup']['store_chem_path']
     track_folder = input_track_path + "/track_data/"
-    check_path_existence(all_paths = [input_track_path,track_folder,final_store_path])
+    check_path_existence(all_paths=[input_track_path,track_folder,final_store_path])
+
     all_track_files = glob.glob(track_folder+"*_track.csv")
     #all_track_files is a list of track files of all the galaxies modelled
 
