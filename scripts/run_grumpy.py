@@ -280,8 +280,8 @@ def add_mags(suite_names=None,iniconf=None):
 
         final_csv_path = iniconf['output paths']['final_output_dir'] + "/" + si + "_" + iniconf['run params']['run_name'] + "_run.csv"
         df = pd.read_csv(final_csv_path)
-        mU,mB,mV,mR,mI,mu,mg,mr,mi,mz = [], [], [], [], [], [], [], [], [], []
         file_names = np.array(df["file_name"])
+        
         #filter for file_names that contain the suite name
         #file_names_f =[]
         ##NEED TO FIX THIS WHEN I WILL BE RUNNING DIFFERENT SUITES AT THE SAME TIME 
@@ -291,6 +291,7 @@ def add_mags(suite_names=None,iniconf=None):
             
         #if len(file_names_f) != len(df["Mvir"]):
         #    raise ValueError("The number of filtered fsps files found does not match the number of objects in the existing csv catalog.")
+
         fsps_filters = list(iniconf['fsps params']['fsps_filters'].split(','))
         mags_fsps = {}
         for fi in fsps_filters:

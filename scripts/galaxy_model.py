@@ -433,7 +433,7 @@ def integrate_single(info):
     return Mouti
 
 def integrate_model(tmdlmdlt=None, good_index=None, data=None, zspl=None, 
-                    params=None, cosmo=None,iniconf=None):
+                    params=None, cosmo=None, iniconf=None):
     '''
     This is the actual integration routine.
     We input in the parameters of the characterisitic mass ,beta and gamma/
@@ -455,7 +455,7 @@ def integrate_model(tmdlmdlt=None, good_index=None, data=None, zspl=None,
     #to ensure that results are reproducible
     np.random.seed(238499)
 
-    times,m200c = data['times'],data['m200c']
+    times, m200c = data['times'], data['m200c']
     tmdlmdlt = np.array(tmdlmdlt)
 
     ###prepare the list to be fed into parallel function
