@@ -14,7 +14,7 @@ try:
 except:
     print("pyFSPS has not been installed yet.")
 
-all_bands = ['u','b','v','cousins_r','cousins_i', 'sdss_u','sdss_g','sdss_r','sdss_i','sdss_z']
+#all_bands = ['u','b','v','cousins_r','cousins_i', 'sdss_u','sdss_g','sdss_r','sdss_i','sdss_z']
 
 def clean_fsps(iniconf=None):
     '''
@@ -42,7 +42,8 @@ def run_parallel(func, iter_input):
 
     '''
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = list(tqdm(executor.map(func,iter_input), total = len(iter_input))) 
+        results = list(tqdm(executor.map(func, iter_input),
+                            total = len(iter_input))) 
     return results
 
 def print_stage(line2print, ch='-'):
@@ -70,7 +71,8 @@ def run_single_fsps(input_stuff=None):
     fsps_output_path = input_stuff["fsps_output_path"]
     time = input_stuff["time"]
     final_ending = input_stuff["final_ending"]
-
+    fsps_filters = input_stuff["fsps_filters"]
+    
     table_path = fsps_input_path + "/" + sfh_name + ".dat"
     #check if this path exists. If this path does not exist, print all the relevant quantities.
     my_path = Path(table_path)
@@ -88,9 +90,9 @@ def run_single_fsps(input_stuff=None):
     if np.max(sfr) == 0:
         sfr[np.argmax(sfr)] = 1e-32
         #the fsps python requires atleast one value with sfr > 1e-33
-    sps.set_tabular_sfh(age,sfr,Z)
+    sps.set_tabular_sfh(age, sfr, Z)
 
-    mags = sps.get_mags(tage=time, bands=all_bands)
+    mags = sps.get_mags(tage=time, bands=fsps_filters)
         
     if final_ending is None:
         output_file = fsps_output_path + "/" + sfh_name.replace(".dat","").replace("fsps_","") + "_output.txt"
@@ -101,7 +103,7 @@ def run_single_fsps(input_stuff=None):
 
     return 
 
-def run_fsps_python(iniconf=None,cosmo=None,use_time=None):
+def run_fsps_python(iniconf=None, cosmo=None, use_time=None):
     '''
     running FSPS on all tabulated SFH and metallicities
 
@@ -157,16 +159,21 @@ def run_fsps_python(iniconf=None,cosmo=None,use_time=None):
         t_fsps = 9.77814e2 / cosmo.H0 # 1/H0 in Gyrs
     else:
         t_fsps = use_time
-    
+        
+    fsps_filters =  iniconf['fsps params']['fsps_filters']
+    fsps_filters = list(fsps_filters.split(","))
+   
     for sfhi in tqdm(sfh_names_list):
         #as we read the file names from glob.glob, we have to remove all the additional text aroudn file name
 
-        dicti = {"sps":sps, "sfh_name":sfhi.replace(".dat",'').replace(fsps_input_path+"/",""),"fsps_input_path":fsps_input_path,
-                 "fsps_output_path":fsps_output_path,"time":t_fsps, "final_ending":None } 
+        dicti = {"sps": sps, "sfh_name": sfhi.replace(".dat",'').replace(fsps_input_path+"/",""),
+                 "fsps_input_path": fsps_input_path, "fsps_output_path": fsps_output_path,
+                 "time": t_fsps, "final_ending": None, "fsps_filters": fsps_filters} 
 
         iter_input.append(dicti)
 
-    #run the first calculation. This usually takes 5 min. The remaining ones happen fast. 
+    #run the first calculation. This usually takes 5 min. The remaining ones happen fast.
+    print('will produce magnitudes in the following filters:', fsps_filters)
     run_single_fsps(iter_input[0])
 
     #running fsps in parallel

@@ -291,25 +291,22 @@ def add_mags(suite_names=None,iniconf=None):
             
         #if len(file_names_f) != len(df["Mvir"]):
         #    raise ValueError("The number of filtered fsps files found does not match the number of objects in the existing csv catalog.")
-
+        fsps_filters = list(iniconf['fsps params']['fsps_filters'].split(','))
+        mags_fsps = {}
+        for fi in fsps_filters:
+            mags_fsps[fi] = []
+            
         for fi in file_names: 
             fsps_output_path = iniconf['output paths']['fsps_output_dir']
             fname = fsps_output_path + "/" + fi + "_output.txt" 
             mags = np.loadtxt(fname)
-            mU.append(mags[0])
-            mB.append(mags[1])
-            mV.append(mags[2])
-            mR.append(mags[3])
-            mI.append(mags[4])
-            mu.append(mags[5])
-            mg.append(mags[6])
-            mr.append(mags[7])
-            mi.append(mags[8])
-            mz.append(mags[9])
+            
+            for ifil, fil in enumerate(fsps_filters):
+                mags_fsps[fil].append(mags[ifil])
 
-        #append the below columns to the dataframe
-        df['mU'],df["mB"],df["mV"],df["mR"],df["mI"],df["mu"],df["mg"],df["mr"],df["mi"],df["mz"]  = mU,mB,mV,mR, mI, mu, mg, mr, mi, mz
-
+        for fi in fsps_filters:
+            df[fi] = mags_fsps[fi]
+            
         #write the updated dataframe to same path 
         df.to_csv(final_csv_path, index=False)
 
@@ -493,11 +490,11 @@ if __name__ == '__main__':
 
         print_stage("FSPS is starting up now.", ch='-')
         
-        run_fsps_python(iniconf=iniconf,cosmo=cosmo)
+        run_fsps_python(iniconf=iniconf, cosmo=cosmo)
 
-        print_stage("FSPS is finished.",ch="-")
+        print_stage("FSPS is finished.", ch="-")
 
         #add the mag tracks to the track data or summary file
-        add_mags(suite_names=all_suite_names,iniconf=iniconf)
+        add_mags(suite_names=all_suite_names, iniconf=iniconf)
 
 
