@@ -18,10 +18,10 @@ from tqdm import tqdm
 import concurrent.futures
 from collections import namedtuple
 from Chempy.solar_abundance import solar_abundances
-from gen_chem_pickle import create_chem_pickle
+from chempy_gen_yield_grids import create_yield_grid, params_from_config
 from scipy import interpolate
 from scipy.interpolate import UnivariateSpline
-from chem_params import extract_chem_params
+from chem_params import extract_chem_params, mass_fractions_from_bracket_XH
 
 
 
@@ -94,38 +94,6 @@ def read_config_file(config_file=None):
     return iniconf 
 
 
-# def compute_net_yield(yi_net,t_low, t_high,ssps_tbirths, ssps_z, ssps_ms):
-#     '''
-#     yi_net is the function that we want to use to compute the net yield.
-    
-#     Used for analytic yields
-    
-#     '''
-#     #need to compute the yield between two time steps
-#     #we also need to multiply this yields by the stellar mass!!!
-#     #we can feed the entire thing to the interpolation directly!
-#     t_age_uppers = t_high  - ssps_tbirths
-#     t_age_lowers = t_low - ssps_tbirths
-
-#     if np.min(t_age_uppers) < 0 or np.min(t_age_lowers) < 0:
-#         print("ISSUE!! THERE HAS BEEN A NEGATIVE or ZERO TIME!!")
-        
-#     t_age_lowers[t_age_lowers == 0] == 1e-3
-
-#     #this is the time arrays we will feed to interp object 
-#     t_age_up_log = np.log10(t_age_uppers)
-#     t_age_low_log = np.log10(t_age_lowers)
-
-#     ssps_z_inis = np.log10(ssps_z)
-#     #the ssps_z_inis should be of same length as t_age_uppers
-
-#     y_upper = yi_net(ssps_z_inis,t_age_up_log,grid = False)
-#     y_lower = yi_net(ssps_z_inis,t_age_low_log,grid = False)
-    
-#     y_delta = (y_upper - y_lower)*ssps_ms #we multiply all the yields by the mass of the SSP 
-
-#     return np.sum(y_delta)
-
 def save_code(code_save_dir,ini_file):
     '''
     Function to clean the fsps input and output file directories. 
@@ -136,76 +104,12 @@ def save_code(code_save_dir,ini_file):
     
     return 
 
-# def compute_Mn_S21_gross_yield(Mn_IA_net,Mn_CC_AGB_net,Mn_diff,t_low,t_high,ssps_tbirths,ssps_z,feh_value, ssps_ms, ini_frac,org_frac):
-#     '''
-
-#     In this function, we use the modified Mn yield from Sanders 21
-
-#     yi_net is the function for net yield
-#     yi_diff is the function for gross yield - net yield
-#     org_frac is the elemental fractional assumed in computation of this grid ... 
-#     it should be a single value
-
-#     feh_value is the feh values for all the SSPs under consideration
-#     We will need to conside the Mn yield of each SSP separately
-
-#     The relation is 
-#     y_gross_fnew = y_net + (fnew/forg) * (y_gross_forg - y_net)
-
-#     the (y_gross_forg - y_net) is decided by the fractions we used in our SSP model initialization
-#     this is something we should be storing so we can scale the net yield
-    
-#     Used for analytic yields
-#     ini_frac is the initial fraction of hte 
-#     '''
-#     #need to compute the yield between two time steps
-#     #we also need to multiply this yields by the stellar mass!!!
-#     #we can feed the entire thing to the interpolation directly!
-#     t_age_uppers = t_high  - ssps_tbirths
-#     t_age_lowers = t_low - ssps_tbirths
-
-#     if np.min(t_age_uppers) < 0 or np.min(t_age_lowers) < 0:
-#         print("ISSUE!! THERE HAS BEEN A NEGATIVE or ZERO TIME!!")
-        
-#     t_age_lowers[t_age_lowers == 0] == 1e-3
-
-#     #this is the time arrays we will feed to interp object 
-#     t_age_up_log = np.log10(t_age_uppers)
-#     t_age_low_log = np.log10(t_age_lowers)
-
-#     ssps_z_inis = np.log10(ssps_z)
-#     #feh value are already in log scale
-#     feh_inis = feh_value
-#     #the ssps_z_inis should be of same length as t_age_uppers
-
-#     y_Mn_Ia_upper = Mn_IA_net(feh_inis,t_age_up_log,grid = False)
-#     y_Mn_Ia_lower = Mn_IA_net(feh_inis,t_age_low_log,grid = False)
-
-#     y_Mn_CC_AGB_upper = Mn_CC_AGB_net(ssps_z_inis,t_age_up_log,grid = False)
-#     y_Mn_CC_AGB_lower = Mn_CC_AGB_net(ssps_z_inis,t_age_low_log,grid = False)
-
-#     # y_upper = yi_net(ssps_z_inis,t_age_up_log,grid = False)
-#     # y_lower = yi_net(ssps_z_inis,t_age_low_log,grid = False)
-    
-#     #gross - net yield
-#     delta_gross_net_upper = Mn_diff(ssps_z_inis,t_age_up_log,grid = False)
-#     delta_gross_net_lower = Mn_diff(ssps_z_inis,t_age_low_log,grid = False)
-    
-#     y_Mn_CC_AGB_gross_upper = y_Mn_CC_AGB_upper + (ini_frac/org_frac) * delta_gross_net_upper
-#     y_Mn_CC_AGB_gross_lower = y_Mn_CC_AGB_lower + (ini_frac/org_frac) * delta_gross_net_lower
-    
-#     y_delta = (y_Mn_CC_AGB_gross_upper - y_Mn_CC_AGB_gross_lower)*ssps_ms + (y_Mn_Ia_upper - y_Mn_Ia_lower)*ssps_ms #we multiply all the yields by the mass of the SSP 
-
-#     return np.sum(y_delta)
-
-
-def compute_gross_yield(yi_net,yi_diff,t_low, t_high,ssps_tbirths, ssps_z, ssps_ms, ini_frac,org_frac):
+def compute_gross_yield(yi_net, yi_diff, t_low, t_high, ssps_tbirths, ssps_z, ssps_ms, ini_frac, org_frac):
     '''
     yi_net is the function for net yield
     yi_diff is the function for gross yield - net yield
     org_frac is the elemental fractional assumed in computation of this grid ... 
     it should be a single value
-    
     
     The relation is 
     y_gross_fnew = y_net + (fnew/forg) * (y_gross_forg - y_net)
@@ -225,7 +129,7 @@ def compute_gross_yield(yi_net,yi_diff,t_low, t_high,ssps_tbirths, ssps_z, ssps_
     if np.min(t_age_uppers) < 0 or np.min(t_age_lowers) < 0:
         print("ISSUE!! THERE HAS BEEN A NEGATIVE or ZERO TIME!!")
         
-    t_age_lowers[t_age_lowers == 0] == 1e-3
+    t_age_lowers[t_age_lowers == 0] = 1e-3
 
     #this is the time arrays we will feed to interp object 
     t_age_up_log = np.log10(t_age_uppers)
@@ -233,6 +137,8 @@ def compute_gross_yield(yi_net,yi_diff,t_low, t_high,ssps_tbirths, ssps_z, ssps_
 
     ssps_z_inis = np.log10(ssps_z)
     #the ssps_z_inis should be of same length as t_age_uppers
+    if len(ssps_z_inis) != len(t_age_uppers):
+        raise ValueError(f"ssp_z_inis and t_age_uppers should be of the same length: {len(ssps_z_inis)}, {len(t_age_uppers)}")
 
     y_upper = yi_net(ssps_z_inis,t_age_up_log,grid = False)
     y_lower = yi_net(ssps_z_inis,t_age_low_log,grid = False)
@@ -270,7 +176,7 @@ def compute_yZ_gross(yZ_gross,t_low, t_high,ssps_tbirths, ssps_z, ssps_ms):
     if np.min(t_age_uppers) < 0 or np.min(t_age_lowers) < 0:
         print("ISSUE!! THERE HAS BEEN A NEGATIVE or ZERO TIME!!")
         
-    t_age_lowers[t_age_lowers == 0] == 1e-3
+    t_age_lowers[t_age_lowers == 0] = 1e-3
 
 
     #this is the time arrays we will feed to interp object 
@@ -279,6 +185,9 @@ def compute_yZ_gross(yZ_gross,t_low, t_high,ssps_tbirths, ssps_z, ssps_ms):
 
     ssps_z_inis = np.log10(ssps_z)
     #the ssps_z_inis should be of same length as t_age_uppers
+    if len(ssps_z_inis) != len(t_age_uppers):
+        raise ValueError(f"ssp_z_inis and t_age_uppers should be of the same length: {len(ssps_z_inis)}, {len(t_age_uppers)}")
+
 
     y_upper = yZ_gross(ssps_z_inis,t_age_up_log,grid = False)
     y_lower = yZ_gross(ssps_z_inis,t_age_low_log,grid = False)
@@ -294,6 +203,7 @@ def compute_all_ms_surv(ms_surv_interp,t_low,ssps_tbirths, ssps_z, ssps_ms):
     the interpolation object takes (logZ and logtime) and returns the quantity assuming 1Msun SSP, so we have to renormalize it
     Used for analytic yields
     '''
+
     t_age_lowers = t_low - ssps_tbirths
     if np.min(t_age_lowers) < 0:
         print("ISSUE!! THERE HAS BEEN A NEGATIVE TIME!! in ms surv")
@@ -301,7 +211,7 @@ def compute_all_ms_surv(ms_surv_interp,t_low,ssps_tbirths, ssps_z, ssps_ms):
     t_age_low_log = np.log10(t_age_lowers)
     ssps_z_inis = np.log10(ssps_z)    
     
-    t_age_lowers[t_age_lowers == 0] == 1e-3
+    t_age_lowers[t_age_lowers == 0] = 1e-3
 
         
     ms_survs = ms_surv_interp(ssps_z_inis,t_age_low_log,grid = False)
@@ -325,7 +235,7 @@ def compute_all_feedback_ms(ms_feedback_interp,t_low, t_high, ssps_tbirths,ssps_
         print("ISSUE!! THERE HAS BEEN A NEGATIVE TIME!! in ms feedback")
         
         
-    t_age_lowers[t_age_lowers == 0] == 1e-3
+    t_age_lowers[t_age_lowers == 0] = 1e-3
     #this is the time arrays we will feed to interp object 
     t_age_low_log = np.log10(t_age_lowers)
     t_age_up_log = np.log10(t_age_uppers)
@@ -340,6 +250,30 @@ def compute_all_feedback_ms(ms_feedback_interp,t_low, t_high, ssps_tbirths,ssps_
     return ms_ej_feed
 
 
+def compute_sn_counts(n_sn_interp, t_low, t_high, ssps_tbirths, ssps_z, ssps_ms):
+    '''
+    Compute the total number of SN events (Ia or CC) from all SSPs
+    between t_low and t_high.
+
+    n_sn_interp is a RectBivariateSpline over (logZ, log t_age) returning
+    the cumulative number of events per 1 Msun SSP.
+    '''
+    t_age_uppers = t_high - ssps_tbirths
+    t_age_lowers = t_low - ssps_tbirths
+
+    t_age_lowers[t_age_lowers == 0] = 1e-3
+
+    t_age_up_log = np.log10(t_age_uppers)
+    t_age_low_log = np.log10(t_age_lowers)
+
+    ssps_z_inis = np.log10(ssps_z)
+
+    n_up = n_sn_interp(ssps_z_inis, t_age_up_log, grid=False)
+    n_low = n_sn_interp(ssps_z_inis, t_age_low_log, grid=False)
+
+    return np.sum((n_up - n_low) * ssps_ms)
+
+
 def store_chem_results(final_dict=None,elements_to_track=None,track_path=None,iniconf=None,final_store_path=None):
     '''
     function that will save the chemical model results to existing file structures or make new ones
@@ -348,7 +282,7 @@ def store_chem_results(final_dict=None,elements_to_track=None,track_path=None,in
     '''
 
     sub_dict = {"t":final_dict["t"],"Ms":final_dict["Ms"], "MZs":final_dict["MZs"],"Mg":final_dict["Mg"],
-                "MZg":final_dict["MZg"]}
+                "MZg":final_dict["MZg"],"N_sn1a":final_dict["N_sn1a"],"N_sn2":final_dict["N_sn2"]}
 
     MXs = final_dict['MXs']
     MXg = final_dict['MXg']
@@ -400,29 +334,22 @@ def store_chem_results(final_dict=None,elements_to_track=None,track_path=None,in
     
 def run_chempy_track(input_stuff):
     '''
-    This function runs the chempy SSP model on a GRUMPY track to 
-    
+    This function runs the chempy SSP model on a GRUMPY track to compute the evolution of various elemental abundances
+
     Parameters:
     df = dataframe object, this is the dataframe that contains the track information
-    Z_IGM = this is the value of the assumed IGM metallicity floor, we draw this randomly from a distribution..
-            this is unlike in our fiducial model we where we assume a fixed -3. (Z_IGM IS NOT IN SOLAR UNITS)
-    all_interps_dict = this is a dictionary that contains all the relevant 2d interpolations e.g. net yields, ms surv etc. 
-    ini_metal_rfrac = the initial relative metal abundance fractions (no H and He in this)
-    model_params and cosmo_params are the 
+    Z_IGM = total IGM metallicity (mass fraction), from [chem model] log_Z_IGM (log10(Z_IGM/Zsun)).
+    all_interps_dict = this is a dictionary that contains all the relevant 2d interpolations e.g. net yields, ms surv etc.
+    Element ratios are set via config keys X_H_IGM, X_H_initial_gas, and X_H_initial_star (ini_metal_rfrac in input_stuff is unused).
+    model_params and cosmo_params are the
 
     One fun point ->
-    We need to follow the total metal content Z for SSP etc. 
+    We need to follow the total metal content Z for SSP etc.
     however, as a result, we do not need to track all the elemental abundances
     We already have a separate 2d interpolation for Z yield :)
-    
+
     Note that I will only be modelling the initial abundance of the SSP
     Assume that the abundances do not change after evolution
-
-    (df,rpd_val=None,nsteps = 500,cosmo=None,evolve_wind = False,
-                     evolve_star = False,verbose = False,elements_to_track = None,
-                     all_interps_dict = None, ini_metal_rfrac = None,metals_to_track=None,
-                     model_params=None,cosmo_params = None,chem_params = None):
-    
     '''
 
     track_path = input_stuff["track_path"]
@@ -448,35 +375,18 @@ def run_chempy_track(input_stuff):
     df = pd.read_csv(track_path)
 
     Zsun = model_params.Zsun
+    chem_section = iniconf['chem model']
+    Z_IGM = Zsun * (10 ** float(chem_section['log_Z_IGM']))
 
     #loading the tracks
-    mgin_cumu = np.array(df["Mgin"])
-    mgout_cumu = np.array(df["Mgout"])
+    mgin_cumu = np.array(df["Mgin"]) #gas inflow cumulative track. ie at a given time "t", what is the total amount of gas inflow!
+    mgout_cumu = np.array(df["Mgout"]) #gas outflow cumulative track. 
 
     mg_evo = np.array(df["Mg"])
     ms_evo = np.array(df["Ms"])
     mh_evo = np.array(df["Mh"])
     tt = np.array(df["t"])
 
-    if chem_params.flexible_igm == "False":
-        if chem_params.log_zigm_sig == 0:
-            Z_IGM = Zsun * 10**(chem_params.log_zigm_mean)
-        else:
-            #this is assuming that the IGM metallicity is the same for the entire galaxy's evolution.
-            #and is not fluctuating over time
-            Z_IGM = (10**np.random.normal(chem_params.log_zigm_mean, chem_params.log_zigm_sig))*Zsun
-
-        def ZIGM_floor(time):
-            '''
-            This is a function that just returns this constant value as IGM floor
-            '''
-            return Z_IGM
-
-    if chem_params.flexible_igm == "True":
-        from flexible_chem_functions import ZIGM_floor
-        Z_IGM = ZIGM_floor(tt[0])
-
-    
     #we convert them to linear interpolation objects
     mgin_spl = interpolate.interp1d(tt, mgin_cumu)
     mh_spl = interpolate.interp1d(tt,mh_evo)
@@ -485,54 +395,76 @@ def run_chempy_track(input_stuff):
         ms_spl = interpolate.interp1d(tt,ms_evo)
     if evolve_wind == False:
         mgout_spl = interpolate.interp1d(tt, mgout_cumu)
-
     
     tstart = tt[0]
     ms_start = 10 #this is the initial stellar mass within the halo
     mg_start = mg_evo[0] #this is the initial gas mass in the halo. We take this from our pre-evolved track
-    mg_z_start = mg_start * Z_IGM
     #the initial abundances of elements X in gas phase
     mg_X = np.zeros_like(elements_to_track,dtype = float) + -99
-    
-    #we initially assume that the relative metal fractions/abundances are the same as solar
-    #if I want to focus on [Fe/H] < -3 stars then this assumption is less valid.
-    #the same assumption is made for IGM gas as well
-    #in the future using more accurate Pop III yields (if we know) would be good
-    
-    ini_element_ratios = iniconf['chem model']['ini_element_ratios']
 
-    if ini_element_ratios == "solar":
+    ### IGM pattern (Z_X_IGM) from required X_H_IGM
+    if chem_section.get('X_H_IGM') is None:
+        raise ValueError("X_H_IGM is required in [chem model]. Element ratios must be set via X_H_IGM, X_H_initial_gas, and X_H_initial_star.")
+    bracket_XH_IGM = np.array(chem_section.get('X_H_IGM').split(","), dtype=float)
+    f_igm = mass_fractions_from_bracket_XH(
+        elements_to_track, Z_IGM, bracket_XH_IGM, chem_params.solar_abundance_name
+    )
+    Z_X_IGM = f_igm
+    metal_mask = (elements_to_track != "H") & (elements_to_track != "He")
 
-        for ei in elements_to_track:
-            if ei == "H":
-                mg_X[ elements_to_track == "H" ] = 0.75*(mg_start - mg_z_start)
-            elif ei == "He":
-                mg_X[ elements_to_track == "He" ] = 0.25*(mg_start - mg_z_start)
-            else:
-                #this for all the rest of the metals 
-                # print(ini_metal_rfrac[metals_to_track == ei])
-                mg_X[elements_to_track == ei] = mg_z_start * ini_metal_rfrac[metals_to_track == ei]
+    ### Initial GAS abundances from X_H_initial_gas (+ optional log_Z_initial_gas)
+    xh_initial_gas = chem_section.get('X_H_initial_gas')
+    if xh_initial_gas is None:
+        raise ValueError("X_H_initial_gas is required in [chem model]. Set [X/H] in dex for each metal, or 'same_as_IGM'.")
 
+    if str(xh_initial_gas).strip().lower() == "same_as_igm":
+        f_gas = Z_X_IGM
     else:
-        #we use user inputted element ratios
+        bracket_XH_initial_gas = np.array(xh_initial_gas.split(","), dtype=float)
+        if chem_section.get('log_Z_initial_gas') is not None:
+            Z_initial_gas = Zsun * (10 ** float(chem_section.get('log_Z_initial_gas')))
+        else:
+            Z_initial_gas = Z_IGM
+        print(f"Elements to track = {elements_to_track}")
+        print(f"Initial gas abundances [X/H] = {bracket_XH_initial_gas}")
+        f_gas = mass_fractions_from_bracket_XH(
+            elements_to_track, Z_initial_gas, bracket_XH_initial_gas, chem_params.solar_abundance_name
+        )
 
-        ini_metal_ratios = np.array(ini_element_ratios.split(",")).astype(float)
-        for j,ei in enumerate(elements_to_track): #we skip over the H and He as this is just for metals
-            if ei == "H":
-                mg_X[ elements_to_track == "H" ] = 0.75*(mg_start - mg_z_start)
-            elif ei == "He":
-                mg_X[ elements_to_track == "He" ] = 0.25*(mg_start - mg_z_start)
-            else:
-                # print(ini_metal_ratios[j - 2])
-                mg_X[elements_to_track == ei] = mg_z_start * ini_metal_ratios[j - 2]
+    mg_X = mg_start * f_gas
+    mg_z_start = mg_start * np.sum(f_gas[metal_mask])
 
     if np.min(mg_X) < 0:
         print(mg_X)
         print(elements_to_track)
-        raise ValueError("Some initial mass of element is negative! Check initial mass fraction values.")
-        
+        raise ValueError("Some initial gas mass of element is negative! Check X_H_initial_gas values.")
+
+    ### Initial STAR abundances from X_H_initial_star (+ optional log_Z_initial_star)
+    xh_initial_star = chem_section.get('X_H_initial_star')
+    if xh_initial_star is None:
+        raise ValueError("X_H_initial_star is required in [chem model]. Set [X/H] in dex for each metal, or 'same_as_IGM'.")
+
+    if str(xh_initial_star).strip().lower() == "same_as_igm":
+        f_star = Z_X_IGM
+    else:
+        bracket_XH_initial_star = np.array(xh_initial_star.split(","), dtype=float)
+        if chem_section.get('log_Z_initial_star') is not None:
+            Z_initial_star = Zsun * (10 ** float(chem_section.get('log_Z_initial_star')))
+        else:
+            Z_initial_star = Z_IGM
+        print(f"Initial star abundances [X/H] = {bracket_XH_initial_star}")
+        f_star = mass_fractions_from_bracket_XH(
+            elements_to_track, Z_initial_star, bracket_XH_initial_star, chem_params.solar_abundance_name
+        )
+
+    ms_x_start = ms_start * f_star
+    ms_z_start = ms_start * np.sum(f_star[metal_mask])
+
     #the time array we will evaluating the SSPs and integrating to compute the time evolution...
     time_steps = np.linspace(tt[0],tt[-1],nsteps)
+
+    print(f"Time steps (Myr) = {np.diff(time_steps)[0] * 1e3:.2f}")
+
     #converting this to redshifts. This is needed to be fed to MH2 function if being used
     if evolve_star == True:
         #load the pickle object
@@ -552,22 +484,16 @@ def run_chempy_track(input_stuff):
     #we append the initial SSP quantities here.
     #these are the values of the first SSP
     ssps_tbirths.append(time_steps[0])
-    ssps_z.append(mg_z_start/mg_start) #assume same metal properties as gas
+    ssps_z.append(ms_z_start/ms_start)
     ssps_ms.append(ms_start)
-    ssps_ini_zfracs.append( mg_X/mg_start)
+    ssps_ini_zfracs.append(f_star)
 
     ssps_tbirths = np.array(ssps_tbirths)
     ssps_z = np.array(ssps_z)
     ssps_ms = np.array(ssps_ms)
     ssps_ini_zfracs = np.array(ssps_ini_zfracs)
 
-    #these are the individual elemental metallicities in the IGM matter
-    Z_X_IGM = mg_X / mg_start
-            
-    #the initial elemental abundance locked inside stars
-    ms_x_start = ms_start * Z_X_IGM
-    ms_z_start = ms_start * Z_IGM
-    #these are the evolution tracks that we will be population
+    #these are the evolution tracks that we will be populating
     mg_tracks = np.array([mg_start]) 
     ms_tracks = np.array([ms_start])
     msx_tracks = np.array([ms_x_start])
@@ -575,10 +501,12 @@ def run_chempy_track(input_stuff):
     mgz_tracks = np.array([mg_z_start]) #this is the initial total metal mass
     mgx_tracks = np.array([mg_X])
     zigm_tracks = np.array([Z_IGM])
+    n_sn1a_tracks = np.array([0.0])
+    n_sn2_tracks = np.array([0.0])
     
     t_tracks = np.array([tstart])
     
-    #we do the euler forward integration now ... 
+    #WE EULER INTEGRATE THIS SYSTEM 
     
     #some relevant stuff needed in SSP yield computation
     org_elements = np.array(all_interps_dict["elements"])
@@ -594,15 +522,6 @@ def run_chempy_track(input_stuff):
     for i in range(len(time_steps) -1 ):
         ti = time_steps[i]
         dt = time_steps[i+1] - time_steps[i] #this is the time step to be taken 
-
-        #if IGM floor is not flexible, this returns same value every time
-        Z_IGM_new = ZIGM_floor(ti)
-        #as Z_IGM changes in flexible case, we will also need to update Z_X_IGM. 
-        #This would be simply be a proportional increase in Z_X_IGM (assuming the relative metal fracs stay the same which we are assuming for simplicity)
-        Z_X_IGM = Z_X_IGM * (Z_IGM_new/zigm_tracks[-1]) 
-        #zigm_tracks[-1] is the igm metallicity in the previous step
-        #Z_IGM_new is the igm metallicity in the current step
-        #we update the value of Z_X_IGM from its previous step. In case where IGM floor is not flexible, Z_X_IGM will not be changing 
 
         #load the current values 
         Mg = mg_tracks[-1]
@@ -623,7 +542,7 @@ def run_chempy_track(input_stuff):
             if i == 0:
                 sfr = 0 #as their is no star formation at the very start we set it to zero (just like GRUMPY)
             M_H2, _ = MH2(Mh=mh_spl(ti), Mg=Mg, MZg=MgZ, sfr=sfr, z=z, h23i=h23i, Om0=Om0, OmL=OmL, 
-                          Zsun= Zsun, Z_IGM = Z_IGM_new/Zsun, SigHIth=SigHIth, rpert = rpd,h2_model = h2_model )
+                          Zsun= Zsun, Z_IGM = Z_IGM/Zsun, SigHIth=SigHIth, rpert = rpd,h2_model = h2_model )
 
             #compute the star formation rate and hence the new star mass formed in Delta_t step
             sfr = M_H2 / tausf
@@ -649,15 +568,18 @@ def run_chempy_track(input_stuff):
         #let us compute the new gas that has been accreting into halo during this delta_t
         mgin_new = mgin_spl(time_steps[i+1]) - mgin_spl(time_steps[i])
         #the corresponding enrichment of elements X through IGM is
-        
+
         mginX_new = mgin_new * Z_X_IGM
-        mginZ_new = mgin_new * Z_IGM_new
+        mginZ_new = mgin_new * Z_IGM
 
         #total metal mass injected into ISM
         #CHECK BELOW STEP
         Z_yield = compute_yZ_gross(all_interps_dict["yZ_gross"],time_steps[i], time_steps[i+1], ssps_tbirths,ssps_z, ssps_ms)
         ms_survs, ms_survs_i = compute_all_ms_surv(all_interps_dict["ms_surv"],time_steps[i],ssps_tbirths, ssps_z, ssps_ms)
         ssp_feedbacks = compute_all_feedback_ms(all_interps_dict["ms_feedback"],time_steps[i], time_steps[i+1], ssps_tbirths,ssps_z, ssps_ms )
+
+        dn_sn1a = compute_sn_counts(all_interps_dict["n_sn1a"], time_steps[i], time_steps[i+1], ssps_tbirths, ssps_z, ssps_ms)
+        dn_sn2 = compute_sn_counts(all_interps_dict["n_sn2"], time_steps[i], time_steps[i+1], ssps_tbirths, ssps_z, ssps_ms)
 
         #X yields are the amount of element X injected into ISM. We thus want the gross yields...
         X_yields = []
@@ -730,7 +652,9 @@ def run_chempy_track(input_stuff):
         #note that msx is the TOTAL mass of element X locked in all stars of that galaxy
         mgz_tracks = np.concatenate((mgz_tracks,[MgZ_next]))
         t_tracks = np.concatenate((t_tracks,[time_steps[i+1]]))
-        zigm_tracks = np.concatenate((zigm_tracks,[Z_IGM_new]) )
+        zigm_tracks = np.concatenate((zigm_tracks,[Z_IGM]) )
+        n_sn1a_tracks = np.concatenate((n_sn1a_tracks, [n_sn1a_tracks[-1] + dn_sn1a]))
+        n_sn2_tracks = np.concatenate((n_sn2_tracks, [n_sn2_tracks[-1] + dn_sn2]))
 
         #in principle, we could add a non-zero threshold here to decrease computational time
         if delta_ms > 0:
@@ -750,6 +674,7 @@ def run_chempy_track(input_stuff):
 
 
     temp_dict = {"t":t_tracks,"Mg":mg_tracks,"Ms":ms_tracks,"MXg":mgx_tracks,"MZg":mgz_tracks,"MZs":msz_tracks,"MXs":msx_tracks,"Z_IGM":zigm_tracks,
+                  "N_sn1a":n_sn1a_tracks,"N_sn2":n_sn2_tracks,
                   "ssps_ms":ssps_ms, "ssps_tbirth":ssps_tbirths,"ssps_z":ssps_z,'ssps_ini_zfracs':ssps_ini_zfracs,"ssps_surv_ms":ms_survs_final}
         
     store_chem_results(final_dict=temp_dict,track_path=track_path,iniconf=iniconf,elements_to_track=elements_to_track,final_store_path = final_store_path)
@@ -782,13 +707,33 @@ def compute_ini_metal_rfrac():
 
 
 def check_grid(loaded_grid_obj, chem_params):
+    """Verify that the loaded yield-grid pickle was generated with the same
+    SSP parameters as the current INI file specifies.
 
-    all_chem_fields = chem_params._fields
+    The new yield grid stores SSP params under loaded_grid_obj["params"] (a dict).
+    We compare every key in that dict against the matching field in chem_params,
+    skipping derived quantities (sn1a_parameter) and fields that only live in
+    chem_params but not in the pickle (galactic-chem-evolution settings).
+    """
+    grid_params = loaded_grid_obj.get("params", {})
+    if not grid_params:
+        return
 
-    for i,ci in enumerate(all_chem_fields):
-        if ci not in ["element_list","ini_element_ratios","log_zigm_mean","log_zigm_sig","solar_abundances","stochastic_resampling"]:
-            if loaded_grid_obj[ci] != chem_params[i]:
-                raise ValueError("The entry for %s in ini file does not match the corresponding chemical grid read. Make sure the appropriate pickle file is being used or generate a new chemical grid with this model configuration."%ci)
+    skip_keys = {"sn1a_parameter"}
+    chem_fields = set(chem_params._fields)
+
+    for key, grid_val in grid_params.items():
+        if key in skip_keys:
+            continue
+        if key not in chem_fields:
+            continue
+        ini_val = getattr(chem_params, key)
+        if ini_val != grid_val:
+            raise ValueError(
+                "The entry for %s in ini file (%s) does not match the "
+                "corresponding chemical grid (%s). Make sure the appropriate "
+                "pickle file is being used or generate a new chemical grid "
+                "with this model configuration." % (key, ini_val, grid_val))
     return
 
 if __name__ == '__main__':
@@ -813,12 +758,11 @@ if __name__ == '__main__':
     pickle_name = chem_grid_path + "/" + iniconf['chem model']['chem_grid_pickle']
     #generate or read the chemical grid
     if iniconf['chem model']['generate_chem_grids'] == "False":
-        #read the grid file
         with open(pickle_name, 'rb') as f:
             loaded_grid_obj = pickle.load(f)
     else:
-        create_chem_pickle(iniconf = iniconf,chem_params = chem_params)
-        # create_chem_pickle_TRIAL(iniconf = iniconf,chem_params = chem_params)
+        ssp_params = params_from_config(iniconf)
+        create_yield_grid(ssp_params, save_path=pickle_name, verbose=True)
 
         with open(pickle_name, 'rb') as f:
             loaded_grid_obj = pickle.load(f)

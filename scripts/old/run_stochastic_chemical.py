@@ -21,7 +21,7 @@ from Chempy.solar_abundance import solar_abundances
 from gen_chem_pickle import create_chem_pickle
 from scipy import interpolate
 from scipy.interpolate import UnivariateSpline
-from chem_params import extract_chem_params
+from chem_params import extract_chem_params, mass_fractions_from_bracket_XH
 #this is only used if evolve_star = True (we usually use False anyways)
 #we can use zspl here, but this was easiest during testing. Will change this later
 # from colossus.cosmology import cosmology
@@ -485,14 +485,12 @@ def run_chempy_track(input_stuff):
     mg_start = mg_evo[0] #this is the initial gas mass in the halo. We take this from our pre-evolved track
     #Z_IGM is drawn from a distribution, and is fed into this function
     mg_z_start = mg_start * Z_IGM
-    
+
     mg_X = np.zeros_like(elements_to_track,dtype = float) + -99
-    
+
     #we can initially assume that the relative metal fractions/abundances are the same as solar
     #if I want to focus on [Fe/H] < -3 stars then this assumption is less valid.
     #the same assumption is made for IGM gas as well
-    #another approach I can do is to assign the yields of CC SNe at low metallicity
-    
     ini_element_ratios = iniconf['chem model']['ini_element_ratios']
 
     if ini_element_ratios == "solar":
@@ -507,22 +505,18 @@ def run_chempy_track(input_stuff):
                 mg_X[elements_to_track == ei] = mg_z_start * ini_metal_rfrac[metals_to_track == ei]
 
     else:
-        #we use user inputted element ratios
-
-        ini_metal_ratios = np.array(ini_element_ratios.split(",")).astype(float)
-        for j,ei in enumerate(elements_to_track): #we skip over the H and He as this is just for metals
-            if ei == "H":
-                mg_X[ elements_to_track == "H" ] = 0.75*(mg_start - mg_z_start)
-            elif ei == "He":
-                mg_X[ elements_to_track == "He" ] = 0.25*(mg_start - mg_z_start)
-            else:
-                mg_X[elements_to_track == ei] = mg_z_start * ini_metal_ratios[j - 2]
+        # user-defined [X/H] in dex (one per metal, same order as elements_list)
+        bracket_XH_list = np.array(ini_element_ratios.split(","), dtype=float)
+        f_array = mass_fractions_from_bracket_XH(
+            elements_to_track, Z_IGM, bracket_XH_list, chem_params.solar_abundance_name
+        )
+        mg_X = mg_start * f_array
 
     if np.min(mg_X) < 0:
         print(mg_X)
         print(elements_to_track)
         print("SOME VALUE WAS NOT UPDATED!")
-        
+
     #the time array we will evaluating the SSPs and integrating to compute the time evolution...
     time_steps = np.linspace(tt[0],tt[-1],nsteps)
     #converting this to redshifts. This is needed to be fed to MH2 function if being used
